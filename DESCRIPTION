@@ -1,0 +1,28 @@
+Package: topicflow
+Type: Package
+Title: Topic Flow
+Version: 0.0.0.9000
+Author: Carlos Paradis, Rick Kazman
+Maintainer: Carlos Paradis <cvas@hawaii.edu>
+Description: Bin corpus monthly and create time flow through binned topics probability distribution similarity.
+License: TBD
+Encoding: UTF-8
+LazyData: true
+Depends:
+    ggplot2,
+    data.table,
+    ggthemes,
+    readtext,
+    quanteda,
+    topicmodels,
+    LDAvis,
+    stringr,
+    lubridate,
+    lsa,
+    roxygen2,
+    tm,
+    slam
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 6.0.1

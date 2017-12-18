@@ -1,0 +1,174 @@
+---
+title: "Topic Flow Creation"
+author: "Carlos Paradis"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Topic Flow Creation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Introduction 
+
+This notebook showcases topic flow through monthly binning and probability distribution similarity. It currently uses Seclist's Mailing List, specifically Full Disclosure, to showcase it's functionality. This work is inspired by (Alisson et al. 2015) work on Topic Flow Visualization.
+
+# Crawler
+
+PERCEIVE Crawler can downloads any one page, month or year of Seclists e-mails archieve as `.html`. A number of parsers can then extract the textual content in different settings to reflect the final document unit for topic modelling (e.g. reply.body.txt, reply.title_body_no_footer.txt). Currently available setups are a combination of the following rules:
+
+ * Title or No Title
+ * Mailing List Footer or No Footer
+ * User Signature or No User Signature 
+ 
+In addition, one parser also extracts the different type of tags used in every `.html` (e.g. blockquotes, hyperlinks) and will be used in future work.
+
+The data used consist of either Seclist's Full Disclosure or BugTraq mailing list, as output by the crawler module, and as such contains for every e-mail reply body a single file. Alternatively, the corpus may use the Aggregation module / data to merge the files into thread files. There is no assumption on the individual file content, other than it reflect the content of the e-mail reply.
+
+# Corpus 
+
+The Corpus used in this Notebook is Seclists' Full Disclosure, a mailing list used to disclose vulnerabilities "in the wild".
+
+```{r Create LDA Models}
+library(topicflow)
+year <- 2014
+
+fd.path <- paste0("~/Desktop/full_disclosure_corpus/",year,".parsed")
+#fd.path <- paste0("~/Desktop/bugtraq_corpus/",year,".parsed")
+
+folder <- loadFiles(fd.path)
+```
+
+
+# LDA 
+
+The VEM model is used as proposed and implemented by (Blei et al 2003). Other models will be tested in a later stage. Model tunning is **not** performed in this notebook to showcase other ways to explore the data, and was performed elsewhere. Pre-processing parameters were discussed in an earlier stage of the research, but not exposed as parameters in model creation at this point, having k=10 been verified through perplexity.
+
+```{r Create Models}
+set.seed(1234)
+models <- list()
+models[["Jan"]] <- rawToLDA(folder,10,"Jan")
+models[["Feb"]] <- rawToLDA(folder,10,"Feb")
+models[["Mar"]] <- rawToLDA(folder,10,"Mar")
+models[["Apr"]] <- rawToLDA(folder,10,"Apr")
+models[["May"]] <- rawToLDA(folder,10,"May")
+models[["Jun"]] <- rawToLDA(folder,10,"Jun")
+models[["Jul"]] <- rawToLDA(folder,10,"Jul")
+models[["Aug"]] <- rawToLDA(folder,10,"Aug")
+models[["Sep"]] <- rawToLDA(folder,10,"Sep")
+models[["Oct"]] <- rawToLDA(folder,10,"Oct")
+models[["Nov"]] <- rawToLDA(folder,10,"Nov")
+models[["Dec"]] <- rawToLDA(folder,10,"Dec")
+```
+
+# Validation
+
+This notebook assess if software vulnerabilities discourse contain a sufficiently expressive vocabulary to be grouped syntatically through LDA. Specifically, does discussion surrounding a given vulnerability deem to be part of the same `topic` as defined by LDA?
+
+We parse CVE's MITRE references to Full Disclosure to label e-mails which were human judgeded to be associated to a particular vulnerability, and then verify if they are also part of the same topic (Yes/No).
+
+```{r Validate Models}
+validationFiles <- lapply(Sys.glob("~/MEGA/Validation/FD Emails Labeled with CVE ID/*.csv"), fread)
+cves <- rbindlist(validationFiles)
+validation.table <- isSameTopicAndSameCVE(models,cves,year)
+View(validation.table)
+```
+
+
+
+# LDAviz: Exploring Topics within a monthly bin
+
+`models` is a named list after each month used to create a separate LDA model covering a single year. 
+
+Each element of the list of models is a named list in itself containing the 3 most relevant data objects associated to the creation of the LDA Model:
+
+ * `tokens`: Contains a matrix of tokens, which is used to create the document-term frequency matrix (dfm).
+ * `dfm`: Contains the document-term frequency matrix, which is used as input to create the LDA model. 
+ * `LDA`: Contains a class (as defined in package `topicmodels`) containing several parameters required to be defined a-priori for the model (e.g. the number of topics `k`), as well as the expected outputs of an LDA model: A `topic-term-matrix`, and a `document-topic-matrix`.
+
+
+```{r Plot LDAVis}
+plotLDAVis(models[["Apr"]],as.gist=FALSE)
+```
+
+
+
+# Topic Exploration
+
+There are varying ways to explore topics. Out of the surveyed methods available, Termite and LDAVis packages offered the best alternatives. We use LDAVis here to explore the topics **within a month**.  
+
+## Topic-Term Matrix
+
+
+The visualization provides more information derived from the `topic-term-matrix` output by LDA. 
+
+Additionally, we may also be interested in seeing how any one term is used across the corpus used for the specified month. For example, if the term `rpath` is of interest, we can inspect the documents, some of the content ocurring immediately before and after in it's original context, as so:
+
+
+```{r}
+View(kwic(models[["May"]][["tokens"]],"vulnerability")) #see context for token u since it is one of the words chosen to represent the topic
+```
+
+## Document-Topic Matrix
+
+While LDAVis provides means to sort the topic terms beyond a maximum likelehood approach to understand which terms distinguish one topic of another through a sliding bar, and their ocurrence in respect to other topics (red and blue bars upon selection), it unfortunately falls short in providing visualization support to the raw content linkage available in the document-topic matrix. 
+
+By using a maximum likelehood approach to transform the soft mapping matrix into a deterministic mapping, we can use it to guide exploration of the documents associated to the topic (in the future, a `nearest-likelehood-threshold` mechanism will be implemented to avoid documents with similar likelehood topics). For example, by observing the number of documents per topic:
+
+```{r}
+GetDocumentsPerTopicCount(models[["May"]][["LDA"]])
+```
+
+Or the name of the documents mapped to a specific topic to explore their content:
+
+```{r}
+GetDocumentsAssignedToTopicK(models[["Dec"]][["LDA"]],5)
+  # Call quanteda library to mask View function if it doesn't show the table below on a browser
+```
+
+# Topic Flow Viz: Exploring Topics Over Time
+
+The Topic Exploration functions are useful to look **within** a given month topics. However, up to this point no exploration or discussion is done concerning what happens between topics of **different months**. Specifically, we are interested in observing how topics change over time, i.e., the topic flow (future work will consider non-temporal relationships): 
+
+```{r}
+topic.flow <- CalculateTopicFlow(models)
+View(topic.flow)
+```
+
+The table displays 2 sub-tables: To the left, Dec-Jan columns describes the topics of highest similarity of every month. The right-side sub-table provide the similarity between the pair of topics. For example, if Jan and Feb columns contain 2 and 3 in a given row to the left sub-table, then in the same row to the right sub-table in the column Jan_Feb will contain the similarity between the topics between months.
+
+It is important to note the presented table contain a few assumptions in it's construction, in order to facilitate the visualization of the Topic Flow in a given year. 
+
+Let's first motivate the assumptions: In this notebook, every month was defined as 10 topics. For every pair of months we wish to compare their similarity against one another, a total of 100 rows is created with the associated similarity. Since we are considering 12 months in every topic flow table (as shown above), we would have a total of 10^12 rows, clearly making it very hard for manual inspection. 
+
+Instead, we resort again to a maximum likelehood approach: 
+
+First, the January 10 topics is considered to be compared with the 10 topics of Febraury. Rather than showing 100 topics, we choose only those with the maximum likelehood similarity from Feb, as such, keeping the number of rows to 10, rather than 100 (note a shortcoming here occurs when other topics from Feb have similar similarity to the highest similarity topic, as discussed before). 
+
+**Independendly**, we apply the same algorithm for **Feb_Mar**. Notice because of this, we consider all topics of Feb here on every row, and have on the Mar column only the maximum likelehood months of March. 
+
+Notice this looks apriori inconsistent: In **Jan_Feb** we only have the topics of **Feb** that were maximum likelehood for at least one topic of **Jan**. In turn, the **Feb_Mar** pair will contain **all topics of Feb**.
+
+We emphasize again the two pargraphs above indicate 2 **independent** operations: We could have calculated in parallel the maximimum likelehood between **Jan_Feb**, and **Feb_Mar**, and all the other pair of months if we wanted to speed up the operation. The "gluing" across all pair of months tables is done afterwards. 
+
+Understanding this operation as independent is important to understand how `NA`s are introduced in the table. A intuitive follow up to glue, for example, the **Jan_Feb** table and the **Feb_Mar** table would be a simple `inner join` through the **common month**, in this example **Feb**. However, we would miss the opportunity to observe **Emerging**, **Continuing**, **Ending** and **Standalone** topic types.
+
+The idea behind labeling topics as of different types is borrowed from Smith et al (2015), in their proposal of Topic Flow. In the original work, and here, the type labels are assigned to a Topic based on their connectivity between months. Because the topics are connected as cartesian products through probabilities, all topics a priori are connected to each other. It is only when we apply some heuristic to reason this "probabilisitic link" as "Yes/No" that types makes sense, or in other words, make the links deterministic. 
+
+In Smith et al. (2015), this is done using thresholds: A sliding bar is used to filter out all links that falls below a given threshold. In our approach, this happens through the maximum likelehood assumption: Topics in a follow-up month may not have links if none of the topics in the current month had it ocurring as highest similarity.
+
+As such, we can apply the same characterization here, by performing an **full outer join** in tables **Jan_Feb** and **Feb_Mar**. 
+ 
+ * **Continuing**: A topic
+
+The table used is a different approach than that used by Topic Flow visualization, also used by the project this notebook is part of.
+
+
+# Other Visualizations
+
+Another option for visualizing the data is using word clouds, although the method doesn't provide much insight into the data when compared to the others presented in this notebook. It is only stated here for documentation purposes. 
+
+```{r Plots, eval=FALSE}
+textplot_wordcloud(tfidf(dfm2), min.freq = 2000, 1random.order = FALSE,rot.per = 0,colors = RColorBrewer::brewer.pal(8,"Dark2"))
+```
+

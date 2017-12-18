@@ -1,0 +1,34 @@
+# History files
+.RData
+.Ruserdata
+.Rhistory
+.Rapp.history
+
+# Package build process
+*-Ex.R
+topicflow_*.tar.gz
+topicflow.Rcheck
+
+# Rstudio files
+.Rproj.user
+topicflow.Rproj
+
+# produced vignettes
+vignettes/*.html
+vignettes/*.pdf
+
+# object and shared objects
+*.o
+*.so
+
+*~
+*.swp
+.DS_Store
+.idea
+
+# Notebook files
+*.nb.html
+*.html
+
+# Misc
+inst/doc
