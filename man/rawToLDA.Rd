@@ -7,11 +7,11 @@
 rawToLDA(folder, k, months)
 }
 \arguments{
+\item{folder}{Folder variable containing all raw data. See \code{\link{loadFiles}}.}
+
 \item{k}{The number of topics k for the model.}
 
 \item{months}{A character vector containing the months of interest (currently one uses the first month)}
-
-\item{raw.corpus.folder.path}{Folder variable containing all raw data. See \code{\link{loadFiles}}.}
 }
 \value{
 A list structure containing 'tokens', 'dfm', 'LDA', used by various functions in the package.

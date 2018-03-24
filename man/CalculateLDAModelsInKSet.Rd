@@ -4,12 +4,14 @@
 \alias{CalculateLDAModelsInKSet}
 \title{Create Topic Models from 1 to k}
 \usage{
-CalculateLDAModelsInKSet(dfm, Ks, method = "VEM")
+CalculateLDAModelsInKSet(folder, Ks = 2:20, months, method = "VEM")
 }
 \arguments{
-\item{dfm}{A document frequency matrix}
+\item{folder}{Folder variable containing all raw data. See \code{\link{loadFiles}}.}
 
 \item{Ks}{A vector of integers (e.g. c(1,3,2,7)) specifying the number of topics to be created}
+
+\item{months}{A character vector containing the months of interest (currently one uses the first month)}
 }
 \value{
 A list of the models for all chosen values in Ks

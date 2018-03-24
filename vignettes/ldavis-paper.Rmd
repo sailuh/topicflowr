@@ -1,0 +1,42 @@
+---
+title: "LDA Vis Visualization of bad accuracy case"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+set.seed(1) #seed must be the same as vignette models-choice-of-k.Rmd
+library(topicflow)
+year <- 2010
+months <- c("Jul")
+ks <- (13)
+```
+
+```{r}
+fd.path <- paste0("~/Desktop/PERCEIVE/full_disclosure_corpus/",year,".parsed")
+#fd.path <- paste0("~/Desktop/bugtraq_corpus/",year,".parsed")
+folder <- loadFiles(parsed.corpus.folder.path=fd.path,corpus_setup="/**/*.reply.title_body.txt")
+```
+
+
+```{r}
+models <- rawToLDA(folder=folder,k=13,months=month) #Chosen by the k selection 
+```
+
+```{r}
+plotLDAVis(models,as.gist=FALSE,topicSimilarityMethod=jsPCA) #or jsPCA which is the default ; we created the cosine
+```
+
+```{r}
+any(c("2010_Jul_281", "2010_Jul_317", "2010_Jul_324", "2010_Jul_337") %in% GetDocumentsAssignedToTopicK(models[["LDA"]],1))
+```
+
+2010_Jul_281 = 7
+2010_Jul_317 = 7
+2010_Jul_324 = 3
+2010_Jul_337 = 3

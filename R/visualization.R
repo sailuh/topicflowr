@@ -34,7 +34,7 @@ plotLDAVis <- function(model,as.gist=FALSE,topicSimilarityMethod=jsPCA){
 #' see issue: https://github.com/sailuh/perceive/issues/84
 #'
 #' @param phi, as specified in createJSON on LDAvis.
-CalculateTopicCosineSimilarity <- function(phi){
+cosinePCA <- function(phi){
   dist.mat <- proxy::dist(x = phi, method = cosine) #needs package lsa
   # then, we reduce the K by K proximity matrix down to K by 2 using PCA
   pca.fit <- stats::cmdscale(dist.mat, k = 2)

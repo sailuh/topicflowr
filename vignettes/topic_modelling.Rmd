@@ -1,0 +1,217 @@
+---
+title: "Topic Modelling"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Topic Modelling}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r Set Seed}
+set.seed(1)
+```
+
+
+```{r Load Libraries, warning = FALSE, message=FALSE}
+library(topicflow)
+year <- 2014
+fd.path <- paste0("~/Desktop/full_disclosure_corpus/",year,".parsed")
+folder <- loadFiles(fd.path)
+```
+
+# Corpus 
+
+The corpus consists of all e-mail replies posted in 2008 in Full Disclosure.
+
+```{r Load Documents, warning=FALSE, message=FALSE}
+fd.path <- "/Users/carlos/Downloads/2013"
+folder <- readtext(fd.path)
+```
+
+
+```{r Filter Documents by Month, warning=FALSE, message=FALSE}
+month <- "Jun" 
+is.document.from.month <- grepl(month,folder$doc_id)
+folder.month <- folder[is.document.from.month,]
+folder.month
+```
+
+Each e-mail reply is defined as a document in the corpus. 
+
+```{r Prepare Corpus}
+corpus <- corpus(folder.month)
+```
+
+# Tokenize 
+
+Each word of each document is defined as a token. Removed tokens consist of **punctuation**, **symbol characters** (as defined by ASCII symbol class), **separators** (e.g. line break), and **URLs**. Words connected by hyphens (e.g. use-after-free) are considered as a **single word** (i.e. hyphens are not removed), nor special symbols for twitter (@ or @) as they may contain other meaning in this mailing list. Given early results presenting the majority of topics as "the", removal of stopwords is also performed.
+
+```{r Tokenize and Dictionary Token Filter}
+tokens <- tokens(corpus, what = "word", remove_numbers = FALSE, remove_punct = TRUE,
+  remove_symbols = TRUE, remove_separators = TRUE,
+  remove_twitter = FALSE, remove_hyphens = FALSE, remove_url = TRUE)
+tokens <- tokens_tolower(tokens)
+tokens <- removeFeatures(tokens, stopwords("english"))
+#tokens <- tokens_wordstem(tokens)
+
+```
+
+# Document-Frequency-Matrix
+
+A matriz using the previous defined tokens is created. 
+
+```{r Create Document-Frequency Matrix}
+dfm <- dfm(tokens)
+#dfm <- dfm(tokens, verbose = FALSE,stem=TRUE)
+#dfm <- dfm(tokens, verbose = FALSE,stem=FALSE) #stemming is done on token block!
+#dfm2 <- dfm_trim(tfidf(dfm), min_count = 100)
+```
+
+The data-frequency matrix has `r ncol(dfm)` terms, and `r nrow(dfm)` documents.
+
+An additional filter that requires term (token) length higher than 2 to avoid topics of size 1 such as "u", which were found to be related to troll discussion.
+
+```{r Filter Document-Frequency Matrix by Term Length}
+dfm <-dfm_select(dfm,min_nchar=2,selection="remove")
+```
+
+The resulting data-frequency matrix has `r ncol(dfm)` terms, and `r nrow(dfm)` documents. The number of documents would only be reduced if all terms of a given document were filtered by the criteria, which is unlikely, however there is a reduction on the number of terms.
+
+
+Another optional filtering step that can be performed, given the large number of terms, is by TF-IDF. 
+
+# TF-IDF Filtering
+
+```{r Print TF-IDF Quartiles, warning=FALSE,message=FALSE}
+require(tm)
+require(slam)
+PrintTermTFIDF(dfm)
+ListTermTFIDF(dfm)
+PlotTermTFIDF(dfm,filter.by.term=FALSE)
+#PlotTermTFIDF(dfm,filter.by.term=TRUE,5000)
+```
+
+```{r Filter by TF-IDF,message=FALSE,warning=FALSE}
+#dfm.tfidf <- FilterDFMByTFIDF(dfm,threshold = 0.2) #Didn't help too much, let's leave it out for now
+```
+
+
+# LDA Model
+
+With the defined document-frequency matrix, we then create a LDA VEM model for k=2 to k=8. 
+
+```{r Create LDA Models}
+#tic()
+#Ks <- c(2:20) #2:20 # Remember there is no model k=1, always start by 2 or LDA will crash.
+Ks <- c(2:50) #2:20 # Remember there is no model k=1, always start by 2 or LDA will crash.
+model.k.for.inspection <- 1 #If the list of models contain only 2 positions, then access it by either 1 or 2. Don't create a Ks <-c(10) and expect to access it at position 10, it will be on position 1! 
+lda.vem <- CalculateLDAModelsInKSet(dfm,Ks,method="VEM") #TODO: Gibbs allow seeding. Knowledge source as seeds will def. be interesting. 
+#lda.vem <- readRDS("~/Google Drive/Research/PhD/New LDA Models/current_model.rds")
+#ggsave("~/Desktop/2008_august_perplexity.png",PlotLDAModelsPerplexity(lda.vem))
+#PlotLDAModelsPerplexity(lda.vem) Will not work for Method Gibbs: Requires holdout.
+#toc()
+```
+
+```{r}
+PlotLDAModelsPerplexity(lda.vem)
+```
+
+
+We need to be careful in that a given topic is defined not by a single word, as shown above, but as a distribution over the words. The one word shown above is merely the highest score for the given topic. This is why for two different topics, the same word may be high (e.g. vulner), but their distributions may be entirely different. For instance, the 2 topics may be related to different kind of vulnerabilities. Let's consider the 2 "vulner" from the lda model k=12, for k-10 and and k-11 respectively. For k=12/k-10 we have:
+
+```{r Topic Term Distributions}
+#sink('~/Desktop/2008_august.txt')
+topic.term <- GetTopicTermMatrices(lda.vem)
+topic.term[[model.k.for.inspection]][["topic.top.terms"]] # Show the top ordered TERMS of all topics for LDA model k=10 
+topic.term[[model.k.for.inspection]][["topic.top.probabilities"]] # Show the top ordered TERMS PROBABILITIES of all topics for LDA model k=10 
+```
+
+
+For every topic model, we can observe how many documents were mapped to each topic.
+
+```{r Topic Document Distribution}
+#topic.document.counts <- list()
+#PrintTopicsTopTerm(lda.vem.tfidf)
+doc.topic <- GetDocumentTopicMatrices(lda.vem)
+doc.topic[[model.k.for.inspection]][["document.top.topics"]][1:5] # Show the top ordered TOPICS of all documents for LDA model k=10 for the first 5 documents
+doc.topic[[model.k.for.inspection]][["document.top.probabilities"]][1:5] # Show the top ordered TOPICS PROBABILITIES of all documents for LDA model k=10 for the first 5 documents
+
+```
+
+And for k=12/k-11 we have:
+
+```{r Number of Documents Assigned for Highest Probability Topic}
+GetDocumentsPerTopicCount(lda.vem[[model.k.for.inspection]])
+```
+
+```{r Documents Assigned to Highest Probability Topic}
+topic.for.inspection.inside.model <- 1
+GetDocumentsAssignedToTopicK(lda.vem[[model.k.for.inspection]],topic.for.inspection.inside.model)
+#sink()
+```
+
+```{r LDAviz, eval=FALSE}
+s(require(LDAvis))
+a <- lda.vem[[model.k.for.inspection]]
+a.posterior <- posterior(a)
+
+phi <- a.posterior$terms
+theta <- a.posterior$topics
+
+doc.length <- as.data.frame(dfm)
+doc.length <- rowSums(doc.length)
+
+vocab <- colnames(phi)
+
+term.frequency <- as.data.frame(dfm)
+term.frequency <- colSums(term.frequency)
+
+json <- createJSON(phi=phi,theta=theta,doc.length=doc.length,vocab=vocab,term.frequency=term.frequency)
+serVis(json=json,open.browser = TRUE,as.gist=FALSE)
+```
+
+```{r Save as a text file for Termite}
+#sapply(tokens, function(x) {write(paste(names(x),x, collapse=', '), file="~/Desktop/termite_corpus.txt",append=TRUE)})
+document.id <- names(tokens)
+for(i in seq_along(tokens)) cat(paste0(document.id[i],"\t"), tokens[[i]], "\n", file = "~/Desktop/termite_corpus.txt",sep=" ",append = TRUE) # Remember to delete file or the append parameter will just add to the end of it. 
+```
+
+# Topic Similarity 
+
+This eval should be true and the following false for the first month.
+```{r, eval = FALSE}
+ttm1 <- posterior(lda.vem[[1]])$terms
+#ttm1[,1:10] #Remember the matrix has just nrows = ntopics, but the ncol is very large, all words!
+#ttm1.bk
+```
+
+Turn this eval TRUE and the former false for the following month.
+```{r eval = TRUE}
+ttm2 <- posterior(lda.vem[[1]])$terms
+#ttm2.bk
+```
+
+Calculate Highest Topic Similarity between ttm1 versus ttm2 (if ttm1 and ttm2 are from different months, then this will generate the "mapping" from topics of ttm1 month to mappings of month ttm2, as made by Topic Flow).
+
+```{r}
+month.pair.topic.mapping <-  CalculateHighestTopicCosineSimilarity(ttm1,ttm2)
+```
+
+
+
+
+```{r Topic Exploration, eval=FALSE}
+#View is masked by Quanteda package. If it doesnt show a html on browser, load library(quanteda) before calling the lien below for kwic.
+View(kwic(tokens,"test_______________________________________________")) #see context for token u since it is one of the words chosen to represent the topic
+str(myLDAfit13)
+get_terms(myLDAfit13, 5)
+topics(myLDAfit13, 3)
+```
+
+
+```{r Plots, eval=FALSE}
+textplot_wordcloud(tfidf(dfm2), min.freq = 2000, random.order = FALSE,rot.per = 0,colors = RColorBrewer::brewer.pal(8,"Dark2"))
+```
+

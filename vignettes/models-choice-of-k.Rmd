@@ -1,0 +1,199 @@
+---
+title: "Choice of K Values"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This vignette covers the analysis of choice of k being automated. 
+
+```{r Create LDA Models}
+set.seed(1)
+library(topicflow)
+library(scales) # for % 
+years <- as.character(2008:2016)
+months <- month.abb[1:12]
+```
+
+
+```{r}
+paths <- paste0("/Users/carlos/MEGA/LDA_VEM/title_body")
+paths <- file.path(paths,list.files(paths))
+
+chosen_topic_per_month_per_year <- list()
+for (i in 1:length(paths)){
+  year <- years[i]
+  model <- readRDS(paths[i])
+  chosen_topic_per_month_list <- lapply(model,ChooseKLDAModelsPerplexity,10)
+  
+  chosen_topic_per_month <- rbindlist(chosen_topic_per_month_list)
+  chosen_topic_per_month$year <- year
+  chosen_topic_per_month$month <- names(chosen_topic_per_month_list)
+  
+  chosen_topic_per_month_per_year[[i]] <- chosen_topic_per_month
+}
+chosen_topic_per_month_per_year <- rbindlist(chosen_topic_per_month_per_year)
+```
+
+# Histogram for chosen values of k 
+
+```{r}
+plot_k_over_time <- chosen_topic_per_month_per_year
+plot_k_over_time$timestamp <- ymd(str_c(plot_k_over_time$year," ",plot_k_over_time$month," ","1"))
+
+
+ggplot(plot_k_over_time, aes(timestamp, k)) + 
+  geom_line() + 
+  xlab("") + 
+  ylab("Number of Topics per Model") + 
+  theme_minimal() +
+  geom_point(aes(timestamp, k)) + 
+  ylim(0,max(plot_k_over_time$k)) 
+```
+
+# Histogram for topic_size_mean
+
+```{r}
+ggplot(plot_k_over_time, aes(timestamp, topic_size_median)) + 
+  geom_line() + 
+  xlab("") + 
+  ylab("Median Number of Documents per Model") + 
+  theme_minimal() +
+  geom_point(aes(timestamp, topic_size_median)) + 
+  ylim(0,max(plot_k_over_time$topic_size_median)) 
+```
+
+# Model Evaluation
+
+Load cves 
+
+```{r}
+validationFiles <- lapply(Sys.glob("~/MEGA/Validation/FD Emails Labeled with CVE ID/*.csv"), fread)
+cves <- rbindlist(validationFiles)
+cves <- cves[,.(cve_id,file_id)]
+cves$month <- sapply(str_split(cves$file_id,"_"),"[[",2)
+cves$year <- sapply(str_split(cves$file_id,"_"),"[[",1)
+cves <- cves[year >= 2008 & year <= 2016]
+```
+
+First, we have to use the chosen k to select from the list of all models the one used for validation
+
+```{r}
+chosen_models <-  list()
+for (i in 1:length(paths)){ #years
+  for(j in 1:length(months)){
+    month <- months[j]
+    year <- years[i]
+    model <- readRDS(paths[i])
+    
+    row_i <- (i-1)*length(months) + j
+    chosen_k <- chosen_topic_per_month_per_year[row_i]$k 
+    chosen_models[[paste0(year,"_",month)]] <- model[[month]][[chosen_k]]
+  }
+}
+```
+
+
+```{r}
+#validation.table <- isSameTopicAndSameCVE(models,cves,year)
+#View(validation.table)
+
+# Extract the list of topics and the documents they belong 
+
+documents_and_topics <- lapply(chosen_models,topics)
+documents_and_topics <- unlist(documents_and_topics)
+documents_and_topics_names <- str_split(names(documents_and_topics),"\\.")
+names(documents_and_topics) <- sapply(documents_and_topics_names,"[",2)
+documents_and_topics <- data.table(file_id=names(documents_and_topics),topic_id=documents_and_topics)
+```
+
+Finally we combine the table of documents with their topic labels with the table of documents with the cve labels
+
+```{r}
+validation_df <- merge(cves,documents_and_topics,by="file_id",all.x="TRUE") #there should be no NAs as we should have all documents collected by the crawler and because no documents are filtered. The only case of NA would be if CVE would reference a document (email) that ended up filtered out, which is unlikely. 
+
+# we want cve_ids on the same month
+isSameCluster <- function(topic_ids){
+  all(topic_ids == topic_ids[1])
+}
+
+df <- validation_df[,.(cve_id,month,is_same_topic_id=isSameCluster(topic_id),count=length(file_id),file_ids=str_c(file_id, collapse = ", ")),by=c("cve_id","month","year")][count >= 2]
+
+```
+
+If we were to consider a random assignment of the documents to the topics, a lower number of topics would favor randomness (there is less things to possible assign a topic to). As such, we add the number of topics k for each month to the final validation table. 
+
+The second factor that influences the accuracy is the number of documents. Likewise, a low number of documents being mapped to x topics than a higher number. 
+
+As such, we should weight higher accuracy results that has a higher number of documents or a higher number of topics when evaluating YES/NO. For our purposes, we consider the two variables as having the same weight when weighting accuracy. 
+
+```{r}
+n_topics_per_corpus <- chosen_topic_per_month_per_year[,.(year,month,number_of_topics_for_the_corpus=k)]
+df2 <- merge(df[,.(cve_id,month,year,is_same_topic_id,count,file_ids)],n_topics_per_corpus,all.x=TRUE,by=c("year","month")) #There should be no NA
+
+#write.csv(df2,"~/MEGA/LDA_VEM/validation_table_title_body.csv",row.names=FALSE)
+
+#accuracy_value <- sum(df2[is_same_topic_id == TRUE]$count*df2[is_same_topic_id == TRUE]$number_of_topics_for_the_corpus) / sum((df2$count*df2$number_of_topics_for_the_corpus))
+accuracy_value <- nrow(df2[is_same_topic_id == TRUE])/nrow(df2)
+```
+
+To provide more than a constant, it would be interesting to visualize the % of times the model got it right (regardless of the weight) out of the total for every year-month. 
+
+```{r}
+monthly_accuracy <- function(is_same_topic_id){
+  return(length(is_same_topic_id[is_same_topic_id == TRUE]) / length(is_same_topic_id))
+}
+
+plot_accuracy <- df2[,.(monthly_accuracy = monthly_accuracy(is_same_topic_id)),by=c("year","month")]
+
+plot_accuracy$timestamp <- ymd(str_c(plot_accuracy$year," ",plot_accuracy$month," ","1"))
+
+
+ggplot(plot_accuracy, aes(timestamp, monthly_accuracy)) + 
+  geom_line() + 
+  xlab("") + 
+  ylab("Proportion of same CVE-IDs documents with the same topic") + 
+  theme_minimal() +
+  geom_point(aes(timestamp, monthly_accuracy)) + 
+  scale_y_continuous(labels=percent)
+```
+
+# Random Accuracy 
+
+```{r}
+
+get_random_model_response <- function(n_topics,n_documents){
+  topic_choices <- base::sample(n_topics,size=n_documents,replace=TRUE)    
+  is_correct <- length(unique(topic_choices))==1  
+  return(is_correct)
+}
+
+get_accuracy <- function(is_response){
+  accuracy <- sum(is_response[is_response == TRUE])/length(is_response)
+  return(accuracy)
+}
+
+accuracy <- array(NA,10000)
+for (i in 1:10000){
+  is_response <- df2[,.(is_response = get_random_model_response(number_of_topics_for_the_corpus,count)),by=1:nrow(df2)]$is_response
+  accuracy[i] <- get_accuracy(is_response)
+}
+accuracy <- data.frame(accuracy)
+```
+
+```{r}
+ggplot(accuracy, aes(accuracy)) + geom_histogram(aes(y=..count../sum(..count..)),bins=20) + 
+  theme_minimal() + 
+  scale_y_continuous(labels=percent) + 
+  #stat_bin(aes(y=..count../sum(..count..)),
+  #           position="identity",bins=20, 
+  #           geom="point") + 
+  #annotate("point", x = 5.6, y = 3.9, colour = "blue")
+  geom_point(aes(x=accuracy_value, y=0), colour="red") + ylab("") + 
+  geom_text(aes( accuracy_value, 0, label = paste0("Accuracy: ",round(accuracy_value,3)), vjust = -1),colour = "red", size = 3,show.legend=FALSE)
+```
+

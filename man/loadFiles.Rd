@@ -4,7 +4,8 @@
 \alias{loadFiles}
 \title{Load Corpus Files}
 \usage{
-loadFiles(raw.corpus.folder.path)
+loadFiles(parsed.corpus.folder.path,
+  corpus_setup = "/**/*.reply.title_body.txt")
 }
 \arguments{
 \item{raw.corpus.folder.path}{The path to the corpus folder (e.g. 2012.parsed)

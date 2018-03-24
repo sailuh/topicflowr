@@ -99,15 +99,63 @@ CalculateLDAModelsUpToN <-function(dfm,N){
   return(lda.vem)
 }
 
+
+CalculateLDAModelsInKSetOld <-function(dfm,Ks,method="VEM"){
+  #
+  if(class(dfm)[1] == "dfmSparse"){ #Quanteda package, needs conversion to topicmodels
+    dfm <- convert(dfm, to = "topicmodels") # Note this conversion leads to loss of the document ids
+  }
+  lda.vem <- list()
+  Ks.size <- length(Ks)
+  for(i in 1:Ks.size){
+    print(paste0("Creating a model for k=",Ks[i]," topics...",sep=" "))
+    lda.vem[[i]] <- LDA(dfm, k = Ks[i],method=method)
+  }
+  return(lda.vem)
+}
+
 #' Create Topic Models from 1 to k
 #'
 #' Returns a list, where every position is a created model. List of k values must be provided as a vector.
 #'
-#' @param dfm A document frequency matrix
+#' @param folder Folder variable containing all raw data. See \code{\link{loadFiles}}.
 #' @param Ks A vector of integers (e.g. c(1,3,2,7)) specifying the number of topics to be created
+#' @param months A character vector containing the months of interest (currently one uses the first month)
+#'
 #'
 #' @return A list of the models for all chosen values in Ks
-CalculateLDAModelsInKSet <-function(dfm,Ks,method="VEM"){
+CalculateLDAModelsInKSet <-function(folder,Ks=2:20,months,method="VEM"){
+
+  #Subset in the folder containing all e-mail replies, the months of interest (leverages the fact the Month name is part of the file name)
+  month <- months[1]
+  is.document.from.month <- grepl(month,folder$doc_id)
+  folder.month <- folder[is.document.from.month,]
+
+  # Every e-mail reply is a document
+  corpus <- corpus(x=folder.month)
+
+  #2008_Feb_223.txt 2008_Feb_227.txt 2008_Feb_300.txt
+  #0                0                0
+
+
+  # Tokenize. Several assumptions made here on pre-processing.
+  tokens <- tokens(corpus, what = "word", remove_numbers = FALSE, remove_punct = TRUE,
+                   remove_symbols = TRUE, remove_separators = TRUE,
+                   remove_twitter = FALSE, remove_hyphens = FALSE, remove_url = TRUE)
+  tokens <- tokens_tolower(tokens)
+  tokens <- removeFeatures(tokens, stopwords("english"))
+
+  # Filter Empty Documents
+  tokens.length <- sapply(tokens,length)
+  tokens <- tokens[!tokens.length == 0]
+
+  # DFM
+  dfm <- dfm(tokens)
+
+  # DFM filter for tokens with nchar > 2 only
+  dfm <-dfm_select(dfm,min_nchar=2,selection="remove")
+
+
   #
   if(class(dfm)[1] == "dfmSparse"){ #Quanteda package, needs conversion to topicmodels
     dfm <- convert(dfm, to = "topicmodels") # Note this conversion leads to loss of the document ids
@@ -125,6 +173,34 @@ CalculateLDAModelsInKSet <-function(dfm,Ks,method="VEM"){
 
 
 ############ Parameter Selection Plot Functions #################
+
+#' Choose K through Perplexity
+#'
+#'This function attemps to quantify our visual perception of the elbow method to pick k, the number of topics.
+#'
+#' @param lda.model.list A list of topic models. See \code{\link{CalculateLDAModelsUpToN}}.
+#'
+#' @return a single integer indicating the number of topics
+ChooseKLDAModelsPerplexity <- function(lda.model.list,topic.size.median.threshold){
+  n_topics <- length(lda.model.list)
+  perplexities <- sapply(lda.model.list,perplexity)
+
+  # As the number of topics increases, the number of documents per topic decreases.
+  median_of_n_documents_per_lda_model <- sapply(sapply(lda.model.list,GetDocumentsPerTopicCount),median)
+  k_up_to <- max(which(median_of_n_documents_per_lda_model > topic.size.median.threshold))
+
+
+  slopes <- perplexities[1:(k_up_to-1)] - perplexities[2:k_up_to]
+  # Next we assess how bigger the biggest slope is compared to the smallest one (highest number of topics available).
+  slopes_magnitude <- abs(slopes/slopes[k_up_to - 1])
+  # And we choose the highest k which the slope is higher than 2 (twice the size of the smallest difference available)
+  choice_of_k <- max(which(slopes_magnitude > 1)) + 1 #slope is between k and k+1. If the slope was the highest, means k+1 was the latest justifiable choice.
+
+  chosen_k_and_median <- data.table(data.frame(choice_of_k,median_of_n_documents_per_lda_model[choice_of_k]))
+  names(chosen_k_and_median) <- c("k","topic_size_median")
+
+  return(chosen_k_and_median)
+}
 
 #' Plot LDA Models Perplexity
 #'
@@ -162,9 +238,9 @@ PlotLDAModelsPerplexity <- function(lda.model.list){
 #' @param raw.corpus.folder.path The path to the corpus folder (e.g. 2012.parsed)
 #'
 #' Returns a folder used by \code{\link{rawToLDA}}.
-loadFiles <- function(raw.corpus.folder.path){
+loadFiles <- function(parsed.corpus.folder.path,corpus_setup="/**/*.reply.title_body.txt"){
   #Load raw corpus from folder path.
-  folder <- readtext(paste0(raw.corpus.folder.path,"/**/*.reply.body.txt"),
+  folder <- readtext(paste0(parsed.corpus.folder.path,corpus_setup),
                      docvarsfrom = "filepaths"
   )
   # Update file names to remove folder name and extension
@@ -179,7 +255,7 @@ loadFiles <- function(raw.corpus.folder.path){
 #' Raw to LDA
 #'
 #' Raw to LDA make several assumptions on pre-processing rules. See the topic_flow_creation vignette for more details.
-#' @param raw.corpus.folder.path Folder variable containing all raw data. See \code{\link{loadFiles}}.
+#' @param folder Folder variable containing all raw data. See \code{\link{loadFiles}}.
 #' @param k The number of topics k for the model.
 #' @param months A character vector containing the months of interest (currently one uses the first month)
 #'
@@ -222,7 +298,8 @@ rawToLDA <- function(folder,k,months){
   #TODO: Extend function to select best K based on lowest perplexity.
   #Ks <- c(10,12) #2:20 # Remember there is no model k=1, always start by 2 or LDA will crash.
   #model.k.for.inspection <- 1 #If the list of models contain only 2 positions, then access it by either 1 or 2. Don't create a Ks <-c(10) and expect to access it at position 10, it will be on position 1!
-  lda.vem <- CalculateLDAModelsInKSet(dfm,k,method="VEM")
+
+  lda.vem <- CalculateLDAModelsInKSetOld(dfm,k,method="VEM")
 
   model <- list()
   model[["tokens"]] <- tokens
@@ -230,4 +307,38 @@ rawToLDA <- function(folder,k,months){
   model[["dfm"]] <- dfm #Necessary for LDAVis plot
 
   return(model)
+}
+
+#' Prototype Function to Filter Corpus
+filterCorpus <- function(year,month,folder){
+
+  #Subset in the folder containing all e-mail replies, the months of interest (leverages the fact the Month name is part of the file name)
+  is.document.from.month <- grepl(month,folder$doc_id)
+  folder.month <- folder[is.document.from.month,]
+
+  # Every e-mail reply is a document
+  corpus <- corpus(x=folder.month)
+
+  #2008_Feb_223.txt 2008_Feb_227.txt 2008_Feb_300.txt
+  #0                0                0
+
+
+  # Tokenize. Several assumptions made here on pre-processing.
+  tokens <- tokens(corpus, what = "word", remove_numbers = FALSE, remove_punct = TRUE,
+                   remove_symbols = TRUE, remove_separators = TRUE,
+                   remove_twitter = FALSE, remove_hyphens = FALSE, remove_url = TRUE)
+  tokens <- tokens_tolower(tokens)
+  tokens <- removeFeatures(tokens, stopwords("english"))
+
+  # Filter Empty Documents
+  tokens.length <- sapply(tokens,length)
+  tokens <- tokens[!tokens.length == 0]
+
+  # DFM
+  dfm <- dfm(tokens)
+
+  # DFM filter for tokens with nchar > 2 only
+  dfm <-dfm_select(dfm,min_nchar=2,selection="remove")
+
+  return(dfm)
 }

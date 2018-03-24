@@ -30,13 +30,14 @@ The data used consist of either Seclist's Full Disclosure or BugTraq mailing lis
 The Corpus used in this Notebook is Seclists' Full Disclosure, a mailing list used to disclose vulnerabilities "in the wild".
 
 ```{r Create LDA Models}
+set.seed(1)
 library(topicflow)
-year <- 2014
+year <- 2008 
 
-fd.path <- paste0("~/Desktop/full_disclosure_corpus/",year,".parsed")
+fd.path <- paste0("~/Desktop/PERCEIVE/full_disclosure_corpus/",year,".parsed")
 #fd.path <- paste0("~/Desktop/bugtraq_corpus/",year,".parsed")
 
-folder <- loadFiles(fd.path)
+folder <- loadFiles(parsed.corpus.folder.path=fd.path,corpus_setup="/**/*.reply.title_body.txt")
 ```
 
 
@@ -44,21 +45,64 @@ folder <- loadFiles(fd.path)
 
 The VEM model is used as proposed and implemented by (Blei et al 2003). Other models will be tested in a later stage. Model tunning is **not** performed in this notebook to showcase other ways to explore the data, and was performed elsewhere. Pre-processing parameters were discussed in an earlier stage of the research, but not exposed as parameters in model creation at this point, having k=10 been verified through perplexity.
 
+
+```{r Evaluate choice of Ks}
+models_to_choose_k <- list()
+
+#A named list from 1 to k-1, where each element contains a lda model S4 class.
+models_to_choose_k[["Jan"]] <- CalculateLDAModelsInKSet(folder,2:15,"Jan")
+models_to_choose_k[["Feb"]] <- CalculateLDAModelsInKSet(folder,2:15,"Feb")
+models_to_choose_k[["Mar"]] <- CalculateLDAModelsInKSet(folder,2:15,"Mar")
+models_to_choose_k[["Apr"]] <- CalculateLDAModelsInKSet(folder,2:15,"Apr")
+models_to_choose_k[["May"]] <- CalculateLDAModelsInKSet(folder,2:15,"May")
+models_to_choose_k[["Jun"]] <- CalculateLDAModelsInKSet(folder,2:15,"Jun")
+models_to_choose_k[["Jul"]] <- CalculateLDAModelsInKSet(folder,2:15,"Jul")
+models_to_choose_k[["Aug"]] <- CalculateLDAModelsInKSet(folder,2:15,"Aug")
+models_to_choose_k[["Sep"]] <- CalculateLDAModelsInKSet(folder,2:15,"Sep")
+models_to_choose_k[["Oct"]] <- CalculateLDAModelsInKSet(folder,2:15,"Oct")
+models_to_choose_k[["Nov"]] <- CalculateLDAModelsInKSet(folder,2:15,"Nov")
+models_to_choose_k[["Dec"]] <- CalculateLDAModelsInKSet(folder,2:15,"Dec")
+
+#saveRDS(models_to_choose_k,file.path("~","MEGA","LDA_VEM","title_body",paste0(year,"_k_up_to_15.rds")))
+```
+
+```{r}
+# A monthly named list where each element is a digit containing the chosen number of k. 
+ks <- list()
+ks[["Jan"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Jan"]])
+ks[["Feb"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Feb"]])
+ks[["Mar"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Mar"]])
+ks[["Apr"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Apr"]])
+ks[["May"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["May"]])
+ks[["Jun"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Jun"]])
+ks[["Jul"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Jul"]])
+ks[["Aug"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Aug"]])
+ks[["Sep"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Sep"]])
+ks[["Oct"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Oct"]])
+ks[["Nov"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Nov"]])
+ks[["Dec"]] <- ChooseKLDAModelsPerplexity(models_to_choose_k[["Dec"]])
+
+PlotLDAModelsPerplexity(models_to_choose_k[["Sep"]])
+chosen_ks <- sapply(ks,"[[",1)
+```
+
+
 ```{r Create Models}
-set.seed(1234)
+set.seed(1)
 models <- list()
-models[["Jan"]] <- rawToLDA(folder,10,"Jan")
-models[["Feb"]] <- rawToLDA(folder,10,"Feb")
-models[["Mar"]] <- rawToLDA(folder,10,"Mar")
-models[["Apr"]] <- rawToLDA(folder,10,"Apr")
-models[["May"]] <- rawToLDA(folder,10,"May")
-models[["Jun"]] <- rawToLDA(folder,10,"Jun")
-models[["Jul"]] <- rawToLDA(folder,10,"Jul")
-models[["Aug"]] <- rawToLDA(folder,10,"Aug")
-models[["Sep"]] <- rawToLDA(folder,10,"Sep")
-models[["Oct"]] <- rawToLDA(folder,10,"Oct")
-models[["Nov"]] <- rawToLDA(folder,10,"Nov")
-models[["Dec"]] <- rawToLDA(folder,10,"Dec")
+
+models[["Jan"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Feb"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Mar"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Apr"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["May"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Jun"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Jul"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Aug"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Sep"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Oct"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Nov"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
+models[["Dec"]] <- models_to_choose_k[["Jan"]][[ks[["Jan"]]]]
 ```
 
 # Validation
