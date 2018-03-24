@@ -28,7 +28,6 @@ vignettes/*.pdf
 
 # Notebook files
 *.nb.html
-*.html
 
 # Misc
 inst/doc
