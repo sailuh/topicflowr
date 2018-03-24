@@ -1,0 +1,61 @@
+template:
+  params:
+    bootswatch: simplex
+
+development:
+  mode: unreleased
+
+navbar:
+  left:
+    - text: "Vignettes"
+      menu:
+      - text: "Dataset Summary"
+        href: articles/dataset_summary.html
+    - text: "API"
+      href: reference/index.html
+
+reference:
+  - title: "Exploration"
+    desc: >
+      Functions to explore topics.
+    contents:
+      - GetDocumentsPerTopicCount
+      - PrintTopicsTopTerm
+      - GetDocumentsOfTopTopicK
+      - GetTopicTermMatrices
+      - GetDocumentTopicMatrices
+      - GetDocumentsAssignedToTopicK
+  - title: "Reading and Writing Data"
+    desc: "Functions for reading and writing data."
+    contents:
+      - exportDocumentTermMatrix
+      - exportTopicTermMatrix
+      - testConceptSimilarity
+  - title: "Topic Flow"
+    desc: "Similarity between topic matrices."
+    contents:
+      - CalculateHighestTopicCosineSimilarity
+      - CalculateTopicFlow
+  - title: "Topic Model"
+    desc: "Functions to construct topic models."
+    contents:
+      - PrintTermTFIDF
+      - PlotTermTFIDF
+      - ListTermTFIDF
+      - FilterDFMByTFIDF
+      - CalculateLDAModelsUpToN
+      - CalculateLDAModelsInKSetOld
+      - CalculateLDAModelsInKSet
+      - ChooseKLDAModelsPerplexity
+      - PlotLDAModelsPerplexity
+      - loadFiles
+      - rawToLDA
+      - filterCorpus
+  - title: "Validation"
+    desc: "Functions to validate results."
+    contents:
+      - isSameTopicAndSameCVE
+  - title: "LDAvis"
+    desc: "Functions for LDAvis package."
+    contents:
+      - plotLDAVis

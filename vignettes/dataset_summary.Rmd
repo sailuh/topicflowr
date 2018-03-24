@@ -18,13 +18,14 @@ vignette: >
 ---
 
 ```{r message = FALSE, warning = FALSE}
-library(topicflow)
+library(topicflowr)
 ```
 
 The following contains the preparation of the corpus used through all the LDA models. 
 
 ```{r}
-years <- as.character(2008:2016)
+#years <- as.character(2008:2016)
+years <- as.character(2008)
 months <- month.abb[1:12]
 ```
 
@@ -118,7 +119,7 @@ get_dfm_statistics <- function(dfm){
 
 # Analysis
 
-```{r Analysis eval = FALSE}
+```{r Analysis, eval = FALSE}
 dfm_raw <- rawCorpus(2016,"Jan")
 dfm_filter <- filterCorpus(2016,"Jan")
 get_dfm_statistics(dfm_raw)
@@ -201,7 +202,7 @@ ggplot(statistics_filter, aes(timestamp, vocabulary_size_mean)) + geom_line(aes(
   #+  geom_ribbon(aes(ymax = vocabulary_size_mean + vocabulary_size_sd, ymin = vocabulary_size_mean - vocabulary_size_sd), alpha = 0.5)
 ```
 
-```{r SD}
+```{r SD, eval = FALSE}
 
 spike_2009 <- statistics_no_filter[vocabulary_size_sd > 4000]
 spike_2010 <- statistics_no_filter[vocabulary_size_sd > 2000 & vocabulary_size_sd < 4000]
@@ -219,7 +220,7 @@ ggplot(statistics_filter, aes(timestamp, vocabulary_size_sd)) + geom_line(aes(co
 
 ## Exploring the two SD peaks
 
-```{r Spike 2009 Analysis}
+```{r Spike 2009 Analysis, eval = FALSE}
 fd.path <- paste0("~/Desktop/PERCEIVE/full_disclosure_corpus/",2009,".parsed")
 folder <- loadFiles(parsed.corpus.folder.path=fd.path,corpus_setup="/**/*.reply.title_body.txt")
 spike_2009 <- filterCorpus("2009","Apr",folder)
@@ -227,12 +228,12 @@ spike_2009_words_per_document <- rowSums(spike_2009)
 barplot(spike_2009_words_per_document)
 ```
 
-```{r}
+```{r, eval = FALSE}
 spike_2009_words_per_document[spike_2009_words_per_document > 8000]
 ```
 
 
-```{r Spike 2010 Analysis}
+```{r Spike 2010 Analysis, eval = FALSE}
 fd.path <- paste0("~/Desktop/PERCEIVE/full_disclosure_corpus/",2010,".parsed")
 folder <- loadFiles(parsed.corpus.folder.path=fd.path,corpus_setup="/**/*.reply.title_body.txt")
 spike_2010 <- filterCorpus("2009","Oct",folder)
@@ -241,13 +242,13 @@ barplot(spike_2010_words_per_document)
 ```
 ```
 
-```{r}
+```{r, eval = FALSE}
 spike_2010_words_per_document[spike_2010_words_per_document > 10000]
 ```
 
 # N Docs  
 
-```{r N Docs}
+```{r N Docs, eval = FALSE}
 spike_docs_2009 <- statistics_no_filter[n_documents == 979]
 spike_docs_2011 <- statistics_no_filter[n_documents == 995]
 
@@ -265,7 +266,7 @@ ggplot(statistics_filter, aes(timestamp, n_documents)) + geom_line(aes(color="Ye
 
 # Validation Set Summary Statistics 
 
-```{r}
+```{r, eval = FALSE}
 validation_path <- "/Users/carlos/MEGA/Validation/FD Emails Labeled with CVE ID"
 file_names <- list.files(validation_path,pattern="*.csv")
 validation_paths <- file.path(validation_path,file_names)
@@ -278,7 +279,7 @@ validation_file <- rbindlist(validation_files)[,.(cve_id,file_id)]
 
 
 
-```{r}
+```{r, eval = FALSE}
 validation_file$month <- sapply(str_split(validation_file$file_id,"_"),"[[",2)
 validation_file$year <- sapply(str_split(validation_file$file_id,"_"),"[[",1)
 validation_frequency <- validation_file[,.(frequency=.N),by=c("month","year")]
@@ -290,7 +291,7 @@ validation_frequency$timestamp <- ymd(str_c(validation_frequency$year," ",valida
 
 # Number of Documents with CVE-ID per corpus.
 
-```{r}
+```{r, eval = FALSE}
 spike_2014 <- validation_frequency[frequency > 150]
 ggplot(validation_frequency, aes(timestamp, frequency)) + geom_line() + xlab("") + ylab("Number of Documents with CVE-ID") + theme_minimal() +
   geom_point(data=validation_frequency,aes(x=timestamp,y=frequency)) + 
@@ -299,7 +300,7 @@ ggplot(validation_frequency, aes(timestamp, frequency)) + geom_line() + xlab("")
 
 # Number of documents per cve ID per month
 
-```{r}
+```{r, eval = FALSE}
 validation_frequency_per_cveid <- validation_file[,.(frequency=.N),by=c("cve_id","month","year")]
 
 #validation_frequency_per_cveid$timestamp <- ymd(str_c(validation_frequency_per_cveid$year," ",validation_frequency_per_cveid$month," ","1"))

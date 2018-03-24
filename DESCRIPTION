@@ -1,10 +1,14 @@
-Package: topicflow
+Package: topicflowr
 Type: Package
 Title: Topic Flow
-Version: 0.0.0.9000
-Author: Carlos Paradis, Rick Kazman
-Maintainer: Carlos Paradis <cvas@hawaii.edu>
+Version: 0.1.0.9000
 Description: Bin corpus monthly and create time flow through binned topics probability distribution similarity.
+Authors@R: c(
+    person('Carlos', 'Paradis', role = c('aut', 'cre'),
+      email = 'cvas@hawaii.edu'),
+    person('Rick', 'Kazman', role = c('aut'),
+      email = 'kazman@hawaii.edu')
+    )
 License: TBD
 Encoding: UTF-8
 LazyData: true
@@ -25,4 +29,6 @@ Depends:
 Suggests: knitr,
     rmarkdown
 VignetteBuilder: knitr
+URL: https://github.com/sailuh/topicflowr
+BugReports: https://github.com/sailuh/topicflowr/issues
 RoxygenNote: 6.0.1

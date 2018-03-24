@@ -1,0 +1,11 @@
+pandoc: 1.19.2.1
+pkgdown: 0.1.0.9000
+pkgdown_sha: 5e4825875751c009444c56ce43d06324ec53e910
+articles:
+  _export_topicflowviz: _export_topicflowviz.html
+  _ldavis-paper: _ldavis-paper.html
+  _models-choice-of-k: _models-choice-of-k.html
+  _topic_flow_creation: _topic_flow_creation.html
+  _topic_modelling: _topic_modelling.html
+  dataset_summary: dataset_summary.html
+

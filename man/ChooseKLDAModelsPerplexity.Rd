@@ -4,7 +4,7 @@
 \alias{ChooseKLDAModelsPerplexity}
 \title{Choose K through Perplexity}
 \usage{
-ChooseKLDAModelsPerplexity(lda.model.list)
+ChooseKLDAModelsPerplexity(lda.model.list, topic.size.median.threshold)
 }
 \arguments{
 \item{lda.model.list}{A list of topic models. See \code{\link{CalculateLDAModelsUpToN}}.}

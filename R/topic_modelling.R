@@ -65,7 +65,14 @@ ListTermTFIDF <- function(dfm_quanteda){
   return(top.terms)
 }
 
-
+#' Filter DFM by TFIDF
+#'
+#' Uses threshold to select the top terms based on tf-idf.
+#'
+#' @param dfm_quanteda A dfm as defined by the quanteda package
+#' @param threshold The threshold to filter terms
+#'
+#' @return A dfm with filtered terms.
 FilterDFMByTFIDF <- function(dfm_quanteda,threshold){
   # The output is a dfm as defined by (tm) package. TODO: Figure out how to do it on quanteda.
   # Method was replicated from topicmodels publication on the Journal of Statistical Software by Grun and Hornik, 2011.
@@ -99,7 +106,13 @@ CalculateLDAModelsUpToN <-function(dfm,N){
   return(lda.vem)
 }
 
-
+#' Calculate LDA Models up to N Old
+#'
+#' Legacy function for backward compatibility. Will be removed in the future.
+#' @param dfm A document frequency matrix
+#' @param Ks The number of topics (i.e. 1:N).
+#'
+#' @return A list of models from 1 to N specified on param N.
 CalculateLDAModelsInKSetOld <-function(dfm,Ks,method="VEM"){
   #
   if(class(dfm)[1] == "dfmSparse"){ #Quanteda package, needs conversion to topicmodels
